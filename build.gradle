@@ -5,6 +5,7 @@ buildscript {
     }
     repositories {
         mavenCentral()
+        jcenter()
     }
     dependencies {
         classpath "org.springframework.boot:spring-boot-gradle-plugin:${springBootVersion}"
@@ -19,10 +20,11 @@ group = 'swat018'
 version = '0.0.1-SNAPSHOT'
 sourceCompatibility = 11
 targetCompatibility = 11
-[compileJava, compileTestJava]*.options*.encoding = 'UTF-8'
+[compileJava, compileTestJava]*.options*.encoding = "UTF-8"
 
 repositories {
     mavenCentral()
+    jcenter()
 }
 
 dependencyManagement {
@@ -32,6 +34,7 @@ dependencyManagement {
 }
 
 dependencies {
+    compile "org.springframework.boot:spring-boot-starter-web"
     compile "org.springframework.boot:spring-boot-starter-thymeleaf"
     testCompile "org.springframework.boot:spring-boot-starter-test"
 }	
