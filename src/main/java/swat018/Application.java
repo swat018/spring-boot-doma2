@@ -5,7 +5,6 @@ import org.springframework.boot.autoconfigure.*;
 import org.springframework.stereotype.*;
 import org.springframework.web.bind.annotation.*;
 
-
 // @Configuration, @EnableAutoConfiguration, @ComponentScan을 지정한 것과 동일
 @SpringBootApplication(scanBasePackageClasses = {ComponentScanBasePackage.class})
 //@EnableAutoConfiguration
