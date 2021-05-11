@@ -1,9 +1,13 @@
 buildscript {
     ext {
-        springBootVersion = "2.0.6.RELEASE"
+        springBootVersion = "2.1.3.RELEASE"
+        spockVersion = "1.2-groovy-2.5"
         groovyVersion = "2.5.3"
+        lombokVersion = "1.18.2"
+        dockerComposePluginVersion = "0.6.6"
     }
     repositories {
+        mavenLocal()
         mavenCentral()
         jcenter()
     }
@@ -12,36 +16,275 @@ buildscript {
     }
 }
 
-apply plugin: "java"
-apply plugin: "org.springframework.boot"
-apply plugin: "io.spring.dependency-management"
+subprojects {
+    apply plugin: "java"
+    apply plugin: "groovy"
+    apply plugin: "idea"
+    apply plugin: "eclipse"
+    apply plugin: "org.springframework.boot"
+    apply plugin: "io.spring.dependency-management"
+    sourceCompatibility = 11
+    targetCompatibility = 11
+    [compileJava, compileTestJava, compileGroovy, compileTestGroovy]*.options*.encoding = "UTF-8"
 
-group = 'swat018'
-version = '0.0.1-SNAPSHOT'
-sourceCompatibility = 11
-targetCompatibility = 11
-[compileJava, compileTestJava]*.options*.encoding = "UTF-8"
+    sourceSets {
+        test.resources {
+            // 테스트 시 src/main/resources에 있는 설정 파일을 사용한다.
+            srcDirs "src/main/resources"
+            srcDirs "src/test/resources"
+        }
+    }
 
-repositories {
-    mavenCentral()
-    jcenter()
-}
+    repositories {
+        mavenCentral()
+        jcenter()
 
-dependencyManagement {
-    imports {
-        mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+        // 재스퍼리포트 (jasperreports)
+        maven { url "http://jasperreports.sourceforge.net/maven2/"}
+        maven { url "http://jaspersoft.artifactoryonline.com/jaspersoft/third-party-ce-artifacts/"}
+    }
+
+    dependencyManagement {
+        imports {
+            mavenBom org.springframework.boot.gradle.plugin.SpringBootPlugin.BOM_COORDINATES
+        }
+    }
+
+    idea {
+        module {
+            downloadJavadoc = true
+            downloadSources = true
+
+            inheritOutputDirs = false
+            outputDir = compileJava.destinationDir
+            testOutputDir = compileTestJava.destinationDir
+        }
+    }
+
+    eclipse {
+        classpath {
+            containers.remove("org.eclipse.jdt.launching.JRE_CONTAINER")
+            containers "org.eclipse.jdt.launching.JRE_CONTAINER/org.eclipse.jdt.internal.debug.ui.launcher.StandardVMType/JavaSE-11"
+        }
+    }
+
+    ext["groovy.version"] = groovyVersion
+
+    bootRun {
+        sourceResources sourceSets.main
+        jvmArgs "-XX:TieredStopAtLevel=1", "-Xverify:none"
+    }
+
+    dependencies {
+        compileOnly "org.projectlombok:lombok:${lombokVersion}"
+        annotationProcessor "org.projectlombok:lombok:${lombokVersion}"
+        testCompile "org.assertj:assertj-core"
+        testCompile "org.spockframework:spock-core:${spockVersion}"
+        testCompile "org.mockito:mockito-core"
     }
 }
-configurations {
-    developmentOnly
-    runtimeClasspath {
-        extendsFrom developmentOnly
+
+project(":sample-common") {
+    bootJar {
+        enabled = false
+    }
+
+    jar {
+        enabled = true
+    }
+    dependencies {
+        // 스프링 프레임워크
+        annotationProcessor "org.springframework.boot:spring-bootconfiguration-processor"
+        compile "org.springframework.boot:spring-boot-starter"
+
+        compile "org.apache.commons:commons-lang3"
+        compile "org.apache.commons:commons-text:1.4"
+        compile "org.apache.commons:commons-compress:1.14"
+        compile "commons-codec:commons-codec"
+        compile "org.apache.commons:commons-digester3:3.2"
+        compile "commons-io:commons-io:2.5"
+        compile "org.apache.tika:tika-core:1.15"
+        compile "dom4j:dom4j"
+        compile "com.ibm.icu:icu4j:59.1"
     }
 }
-dependencies {
-    developmentOnly "org.springframework.boot:spring-boot-devtools"
 
-    compile "org.springframework.boot:spring-boot-starter-web"
-    compile "org.springframework.boot:spring-boot-starter-thymeleaf"
-    testCompile "org.springframework.boot:spring-boot-starter-test"
-}	
+project(":sample-domain") {
+    bootJar {
+        enabled = false
+    }
+
+    jar {
+        enabled = true
+    }
+
+    // 도마(Doma) 2를 위한 코드
+    // 자바 클래스와 SQL 파일의 출력 디렉터리를 동일하게 한다.
+    processResources.destinationDir = compileJava.destinationDir
+    // 컴파일하기 전 SQL 파일을 출력 디렉터리에 복사하기 위해 의존 관계를 역전한다.
+    compileJava.dependsOn processResources
+
+    dependencies {
+        compile project(":sample-common")
+
+        // 스프링 프레임워크
+        compile "org.springframework.boot:spring-boot-starter-aop"
+        compile "org.springframework.boot:spring-boot-starter-validation"
+        compile "org.springframework.boot:spring-boot-starter-mail"
+        compile "org.springframework.boot:spring-boot-starter-thymeleaf"
+        compile "org.springframework.boot:spring-boot-starter-jdbc"
+        compile "org.springframework.boot:spring-boot-starter-json"
+
+        // 도마에서 스프링 프레임워크 제외하기
+        annotationProcessor "org.seasar.doma.boot:doma-spring-bootstarter:1.1.1"
+        compile("org.seasar.doma.boot:doma-spring-boot-starter:1.1.1") {
+            exclude group: "org.springframework.boot"
+        }
+
+        // 잭슨(jackson)
+        compile "com.fasterxml.jackson.dataformat:jackson-dataformat-csv"
+
+        // 모델매퍼(modelmapper)
+        compile "org.modelmapper:modelmapper:0.7.5"
+
+        // 타임리프
+        compile "org.codehaus.groovy:groovy:${groovyVersion}"
+        compile("nz.net.ultraq.thymeleaf:thymeleaf-layout-dialect:2.3.0") {
+            exclude group: "org.codehaus.groovy", module: "groovy"
+        }
+
+        // mysql 데이터베이스
+        compile "mysql:mysql-connector-java"
+        compile "org.flywaydb:flyway-core"
+
+        testCompile "org.springframework.boot:spring-boot-starter-test"
+        testCompile "org.spockframework:spock-spring:${spockVersion}"
+    }
+}
+
+project(":sample-web-base") {
+    bootJar {
+        enabled = false
+    }
+
+    jar {
+        enabled = true
+    }
+
+    dependencies {
+        compile project(":sample-domain")
+
+        // 스프링 프레임워크
+        compile "org.springframework.boot:spring-boot-starter-cache"
+        compile("org.springframework.boot:spring-boot-starter-web") {
+            // Jetty를 사용하기 위해 내장된 톰캣 재외
+            exclude module: "spring-boot-starter-tomcat"
+        }
+
+        // 세션 보관 위치로 DB를 사용할 경우
+        compile "org.springframework.session:spring-session-jdbc"
+        // 세션 보관 위치로 redis를 사용할 경우
+        // compile "org.springframework.boot:spring-boot-starter-data-redis"
+
+        // 타임리프
+        compile "org.thymeleaf.extras:thymeleaf-extras-springsecurity5"
+
+        // 재스퍼리포트
+        compile "net.sf.jasperreports:jasperreports:6.4.0"
+        compile "com.lowagie:itext:2.1.7.js5"
+
+        // 아파치 POI
+        compile "org.apache.poi:poi:3.16"
+        compile "org.apache.poi:poi-ooxml:3.16"
+
+        // ENCache
+        compile "net.sf.ehcache:ehcache"
+
+        // webjars
+        compile "org.webjars:webjars-locator-core"
+        compile "org.webjars:bootstrap:3.3.7"
+        compile "org.webjars:jquery:2.2.4"
+        compile "org.webjars:jquery-validation:1.17.0"
+        compile "org.webjars:bootstrap-datepicker:1.7.1"
+        compile("org.webjars.bower:iCheck:1.0.2") {
+            exclude module: "jquery"
+        }
+        compile "org.webjars:html5shiv:3.7.3"
+        compile "org.webjars:respond:1.4.2"
+        compile "org.webjars:AdminLTE:2.3.8"
+        compile "org.webjars:font-awesome:4.7.0"
+        compile "org.webjars:ionicons:2.0.1"
+
+        testCompile "org.springframework.security:spring-security-test"
+        testCompile "org.springframework.boot:spring-boot-starter-test"
+        testCompile "org.spockframework:spock-spring:${spockVersion}"
+    }
+}
+
+project(":sample-web-admin") {
+    bootJar {
+        launchScript()
+    }
+
+    configurations {
+        developmentOnly
+        runtimeClasspath {
+            extendsFrom developmentOnly
+        }
+    }
+
+    dependencies {
+        compile project(":sample-web-base")
+        developmentOnly "org.springframework.boot:spring-boot-devtools"
+
+        testCompile "org.springframework.security:spring-security-test"
+        testCompile "org.springframework.boot:spring-boot-starter-test"
+        testCompile "org.spockframework:spock-spring:${spockVersion}"
+    }
+}
+
+project(":sample-web-front") {
+    bootJar {
+        launchScript()
+    }
+
+    configurations {
+        developmentOnly
+        runtimeClasspath {
+            extendsFrom developmentOnly
+        }
+    }
+
+    dependencies {
+        compile project(":sample-web-base")
+        developmentOnly "org.springframework.boot:spring-boot-devtools"
+
+        testCompile "org.springframework.security:spring-security-test"
+        testCompile "org.springframework.boot:spring-boot-starter-test"
+        testCompile "org.spockframework:spock-spring:${spockVersion}"
+    }
+}
+
+project(":sample-batch") {
+    bootRun {
+        // 프로젝트 속성을 인수로 건낸다.
+        if (project.hasProperty("args")) {
+            args project.args.split("\\s+")
+        }
+    }
+
+    dependencies {
+        compile project(":sample-domain")
+
+        // 스프링 프레임워크
+        compile "org.springframework.boot:spring-boot-starter-batch"
+
+        testCompile "org.springframework.boot:spring-boot-starter-test"
+        testCompile "org.springframework.batch:spring-batch-test"
+        testCompile "org.spockframework:spock-spring:${spockVersion}"
+    }
+}
+
+//task wrapper(type: Wrapper) {
+//    gradleVersion = "4.10.2"
+//}
