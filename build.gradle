@@ -239,8 +239,12 @@ project(":sample-web-admin") {
 
         testCompile "org.springframework.security:spring-security-test"
         testCompile "org.springframework.boot:spring-boot-starter-test"
+        testCompile "io.springfox:springfox-staticdocs:2.6.0"
         testCompile "org.spockframework:spock-spring:${spockVersion}"
     }
+
+
+
 }
 
 project(":sample-web-front") {
@@ -271,11 +275,12 @@ project(":sample-batch") {
         if (project.hasProperty("args")) {
             args project.args.split("\\s+")
         }
-    }
+   }
+
 
     dependencies {
         compile project(":sample-domain")
-
+1
         // 스프링 프레임워크
         compile "org.springframework.boot:spring-boot-starter-batch"
 
