@@ -275,6 +275,8 @@ project(":sample-batch") {
         if (project.hasProperty("args")) {
             args project.args.split("\\s+")
         }
+
+
    }
 
 
